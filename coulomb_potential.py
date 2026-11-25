@@ -1,0 +1,58 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Physical constants
+hbar = 1973.0
+m = 0.511e6
+e = 3.795
+
+
+def make_hamiltonian(n_pts, dr, V):
+    # Construct tridiagonal kinetic matrix with NumPy diag
+    main_diag = np.full(n_pts, 2.0)
+    off_diag = np.full(n_pts - 1, -1.0)
+    T = (hbar**2 / (2.0 * m * dr**2)) * (
+        np.diag(main_diag) + np.diag(off_diag, k=1) + np.diag(off_diag, k=-1)
+    )
+    return T + np.diag(V)
+
+
+def yukawa_potential(r, a):
+    return -(e**2) * np.exp(-r / a) / r
+
+
+def get_screened_state(r_max, n_pts, state, a):
+    dr = r_max / (n_pts + 1)
+    r = np.linspace(dr, r_max - dr, n_pts)
+
+    V = yukawa_potential(r, a)
+    H = make_hamiltonian(n_pts, dr, V)
+
+    energies, vecs = np.linalg.eigh(H)
+
+    u = vecs[:, state]
+    if u[np.argmax(np.abs(u))] < 0:
+        u = -u
+
+    # Normalize u(r) and compute radial wavefunction R(r) = u(r)/r
+    u_norm = u / np.sqrt(np.sum(u**2) * dr)
+    R = u_norm / r
+
+    return r / a, R * (a**1.5), energies[state]
+
+
+# Parameters
+r_max = 20.0
+n_pts = 1000
+screening_lengths = [3, 5, 7]
+
+# Plot ground state (state = 0) for each screening length a
+for a_val in screening_lengths:
+    r_scaled, R_scaled, E = get_screened_state(r_max, n_pts, state=0, a=a_val)
+    plt.plot(r_scaled, R_scaled, label=f"a = {a_val}, E = {E:.2f} eV")
+
+plt.xlabel(r"$r/a$")
+plt.ylabel(r"$a^{3/2}R(r)$")
+plt.legend()
+plt.grid(True)
+plt.show()
